@@ -151,7 +151,7 @@ class PageCategoriesController extends AppController {
 		} else {
 			$linkedPagesMobile = false;
 		}
-		if(Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || $this->siteConfigs['linked_pages_smartphone'])=='0') {
+		if(Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || !$this->siteConfigs['linked_pages_smartphone'])) {
 			$linkedPagesSmartPhone = true;
 		} else {
 			$linkedPagesSmartPhone = false;
@@ -184,11 +184,10 @@ class PageCategoriesController extends AppController {
  * @access public
  */
 	public function admin_add() {
-
-		if(empty($this->request->data)) {
-			$this->request->data = array('PageCategory' => array('contents_navi' => false, 'page_category_type' => 1));
+		if ($this->request->is('get')) {
+			$this->request->data = array(
+				'PageCategory' => array('contents_navi' => 0, 'page_category_type' => 1));
 		} else {
-
 			if(!$this->request->data['PageCategory']['parent_id']) {
 				switch ($this->request->data['PageCategory']['page_category_type']) {
 					case 1:
@@ -203,28 +202,27 @@ class PageCategoriesController extends AppController {
 				}
 			}
 			
-			unset($this->request->data['PageCategory']['page_category_type']);
-			
 			/* 登録処理 */
 			$this->PageCategory->create($this->request->data);
 
-			if($this->PageCategory->validates()) {
-				if($this->PageCategory->save($this->request->data,false)) {
-					$message = '固定ページカテゴリー「'.$this->request->data['PageCategory']['name'].'」を追加しました。';
-					if(ini_get('safe_mode')) {
-						$message .= '<br />機能制限のセーフモードで動作しているので、手動で次のフォルダ内に追加したカテゴリと同階層のフォルダを作成し、書込権限を与える必要があります。<br />'.
-									WWW_ROOT.'themed'.DS.$this->siteConfigs['theme'].DS.'pages'.DS;
+			if ($this->PageCategory->validates()) {
+				//登録に必要ないカテゴリータイプを削除
+				unset($this->request->data['PageCategory']['page_category_type']);
+
+				if ($this->PageCategory->save($this->request->data,false)) {
+					$message = '固定ページカテゴリー「' . $this->request->data['PageCategory']['name'] . '」を追加しました。';
+					if (ini_get('safe_mode')) {
+						$message .= '<br />機能制限のセーフモードで動作しているので、手動で次のフォルダ内に追加したカテゴリと同階層のフォルダを作成し、書込権限を与える必要があります。<br />' . WWW_ROOT . 'themed' . DS . $this->siteConfigs['theme'] . DS . 'pages' . DS;
 					}
 					$this->Session->setFlash($message);
-					$this->PageCategory->saveDbLog('固定ページカテゴリー「'.$this->request->data['PageCategory']['name'].'」を追加しました。');
+					$this->PageCategory->saveDbLog('固定ページカテゴリー「' . $this->request->data['PageCategory']['name'] . '」を追加しました。');
 					$this->redirect(array('controller' => 'page_categories', 'action' => 'index'));
-				}else {
+				} else {
 					$this->Session->setFlash('保存中にエラーが発生しました。');
 				}
-			}else {
+			} else {
 				$this->Session->setFlash('入力エラーです。内容を修正してください。');
 			}
-
 		}
 
 		/* 表示設定 */
@@ -232,7 +230,7 @@ class PageCategoriesController extends AppController {
 		$parents = $this->PageCategory->getControlSource('parent_id', array(
 			'ownerId' => $user['user_group_id']
 		));
-		if($this->checkRootEditable()) {
+		if ($this->checkRootEditable()) {
 			if($parents) {
 				$parents = array('' => '指定しない') + $parents;
 			} else {
@@ -249,12 +247,12 @@ class PageCategoriesController extends AppController {
 			}
 		}
 		
-		if(Configure::read('BcApp.mobile') && (!isset($this->siteConfigs['linked_pages_mobile']) || !$this->siteConfigs['linked_pages_mobile'])) {
+		if (Configure::read('BcApp.mobile') && (!isset($this->siteConfigs['linked_pages_mobile']) || !$this->siteConfigs['linked_pages_mobile'])) {
 			$reflectMobile = true;
 		} else {
 			$reflectMobile = false;
 		}
-		if(Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || $this->siteConfigs['linked_pages_smartphone'])=='0') {
+		if (Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || !$this->siteConfigs['linked_pages_smartphone'])) {
 			$reflectSmartphone = true;
 		} else {
 			$reflectSmartphone = false;
@@ -267,8 +265,8 @@ class PageCategoriesController extends AppController {
 		$this->pageTitle = '新規固定ページカテゴリー登録';
 		$this->help = 'page_categories_form';
 		$this->render('form');
-
 	}
+
 /**
  * [ADMIN] 固定ページカテゴリー情報編集
  *
@@ -357,7 +355,7 @@ class PageCategoriesController extends AppController {
 		} else {
 			$reflectMobile = false;
 		}
-		if(Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || $this->siteConfigs['linked_pages_smartphone'])=='0') {
+		if(Configure::read('BcApp.smartphone') && (!isset($this->siteConfigs['linked_pages_smartphone']) || !$this->siteConfigs['linked_pages_smartphone'])) {
 			$reflectSmartphone = true;
 		} else {
 			$reflectSmartphone = false;
