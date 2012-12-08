@@ -65,16 +65,20 @@ class PageCategoriesController extends AppController {
  * @access public
  */
 	public function beforeFilter() {
-		
+		//TODO: BlackHoleに落ちるからとりあえずの対策
+		$this->Security->validatePost = false;
+		$this->Security->csrfCheck = false;
+
 		parent::beforeFilter();
+
 		$user = $this->BcAuth->user();
 		$newCatAddable = $this->PageCategory->checkNewCategoryAddable(
 				$user['user_group_id'], 
 				$this->checkRootEditable()
 		);
 		$this->set('newCatAddable', $newCatAddable);
-		
 	}
+
 /**
  * [ADMIN] 固定ページカテゴリーリスト
  *
@@ -146,7 +150,7 @@ class PageCategoriesController extends AppController {
 		}
 		
 		$pageType = array();
-		if(Configure::read('BcApp.mobile') && (!isset($this->siteConfigs['linked_pages_mobile']) || $this->siteConfigs['linked_pages_mobile'])=='0') {
+		if (Configure::read('BcApp.mobile') && (!isset($this->siteConfigs['linked_pages_mobile']) || !$this->siteConfigs['linked_pages_mobile'])) {
 			$linkedPagesMobile = true;
 		} else {
 			$linkedPagesMobile = false;
@@ -168,6 +172,7 @@ class PageCategoriesController extends AppController {
 		if($pageType) {
 			$this->search = 'page_categories_index';
 		}
+
 		$this->help = 'page_categories_index';
 		$this->set('pageType', $pageType);
 
@@ -275,19 +280,20 @@ class PageCategoriesController extends AppController {
  * @access public
  */
 	public function admin_edit($id) {
-
 		/* 除外処理 */
-		if(!$id && empty($this->request->data)) {
+		if (!$id && empty($this->request->data)) {
 			$this->Session->setFlash('無効なIDです。');
 			$this->redirect(array('action' => 'index'));
 		}
 
-		if(empty($this->request->data)) {
+		if ($this->request->is('get')) {
 			$this->request->data = $this->PageCategory->read(null, $id);
+			if (empty($this->request->data)) {
+				throw new NotFoundException('該当するページカテゴリーは存在しません。');
+			}
 			$this->request->data['PageCategory']['page_category_type'] = $this->PageCategory->getType($this->request->data['PageCategory']['id']);
-		}else {
-
-			if(!$this->request->data['PageCategory']['parent_id']) {
+		} else {
+			if (!$this->request->data['PageCategory']['parent_id']) {
 				switch ($this->request->data['PageCategory']['page_category_type']) {
 					case 1:
 						$this->request->data['PageCategory']['parent_id'] = '';
@@ -301,12 +307,13 @@ class PageCategoriesController extends AppController {
 				}
 			}
 			
-			unset($this->request->data['PageCategory']['page_category_type']);
-			
 			/* 更新処理 */
 			$this->PageCategory->set($this->request->data);
 
-			if($this->PageCategory->validates()) {
+			if ($this->PageCategory->validates()) {
+				// 更新に必要のない項目をunset
+				unset($this->request->data['PageCategory']['page_category_type']);
+
 				if($this->PageCategory->save($this->request->data,false)) {
 					$this->Session->setFlash('固定ページカテゴリー「'.$this->request->data['PageCategory']['name'].'」を更新しました。');
 					$this->PageCategory->saveDbLog('固定ページカテゴリー「'.$this->request->data['PageCategory']['name'].'」を更新しました。');
@@ -334,11 +341,11 @@ class PageCategoriesController extends AppController {
 
 		/* 表示設定 */
 		$user = $this->BcAuth->user();
-		$userModel = $this->getUserModel();
+
 		$mobileId = $this->PageCategory->getAgentId();
 		$parents = $this->PageCategory->getControlSource('parent_id', array(
 			'excludeParentId' => $this->request->data['PageCategory']['id'],
-			'ownerId' => $user[$userModel]['user_group_id']
+			'ownerId' => $user['user_group_id']
 		));
 		if($this->checkRootEditable()) {
 			if($parents) {
@@ -368,7 +375,6 @@ class PageCategoriesController extends AppController {
 		$this->pageTitle = '固定ページカテゴリー情報編集：'.$this->request->data['PageCategory']['title'];
 		$this->help = 'page_categories_form';
 		$this->render('form');
-
 	}
 /**
  * [ADMIN] 固定ページカテゴリー情報削除
@@ -389,7 +395,7 @@ class PageCategoriesController extends AppController {
 		$page = $this->PageCategory->read(null, $id);
 
 		/* 削除処理 */
-		if($this->PageCategory->del($id)) {
+		if($this->PageCategory->delete($id)) {
 			$this->Session->setFlash('固定ページカテゴリー: '.$page['PageCategory']['name'].' を削除しました。');
 			$this->PageCategory->saveDbLog('固定ページカテゴリー「'.$page['PageCategory']['name'].'」を削除しました。');
 		}else {
@@ -409,7 +415,7 @@ class PageCategoriesController extends AppController {
  */
 	public function admin_up($id) {
 		
-		$this->PageCategory->moveup($id);
+		$this->PageCategory->moveUp($id);
 		$this->redirect(array('controller' => 'page_categories', 'action' => 'index', "#" => 'Row'.$id));
 		
 	}
@@ -423,7 +429,7 @@ class PageCategoriesController extends AppController {
  */
 	public function admin_down($id) {
 		
-		$this->PageCategory->movedown($id);
+		$this->PageCategory->moveDown($id);
 		$this->redirect(array('controller' => 'page_categories', 'action' => 'index', "#" => 'Row'.$id));
 		
 	}
@@ -435,20 +441,19 @@ class PageCategoriesController extends AppController {
  * @access public
  */
 	public function admin_ajax_delete($id = null) {
-
-		if(!$id) {
+		if (!$id) {
 			$this->ajaxError(500, '無効な処理です。');
 		}
 		
 		$data = $this->PageCategory->read(null, $id);
 
-		if($this->PageCategory->del($id)) {			
+		if ($this->PageCategory->delete($id)) {			
 			$this->PageCategory->saveDbLog('固定ページ: '.$data['PageCategory']['name'].' を削除しました。');
 			echo true;
 		}
 		exit();
-
 	}
+
 /**
  * [ADMIN] 固定ページカテゴリーコピー
  * 
@@ -458,7 +463,9 @@ class PageCategoriesController extends AppController {
  */
 	public function admin_ajax_copy($id = null) {
 		
+
 		$result = $this->PageCategory->copy($id);
+
 		if($result) {
 			$result['PageCategory']['id'] = $this->PageCategory->getInsertID();
 			$this->_setAdminIndexViewData();
@@ -466,7 +473,6 @@ class PageCategoriesController extends AppController {
 		} else {
 			$this->ajaxError(500, $this->PageCategory->validationErrors);
 		}
-		
 	}
 /**
  * 一覧の表示用データをセットする
@@ -496,7 +502,7 @@ class PageCategoriesController extends AppController {
 		if($ids) {
 			foreach($ids as $id) {
 				$data = $this->PageCategory->read(null, $id);
-				if($this->PageCategory->del($id)) {
+				if($this->PageCategory->delete($id)) {
 					$this->PageCategory->saveDbLog('固定ページカテゴリー: '.$data['PageCategory']['name'].' を削除しました。');
 				}
 			}
@@ -513,7 +519,7 @@ class PageCategoriesController extends AppController {
  */
 	public function admin_ajax_up($id) {
 		
-		if($this->PageCategory->moveup($id)) {
+		if($this->PageCategory->moveUp($id)) {
 			echo true;
 		} else {
 			$this->ajaxError(500, '一度リロードしてから再実行してみてください。');
@@ -531,7 +537,7 @@ class PageCategoriesController extends AppController {
  */
 	public function admin_ajax_down($id) {
 		
-		if($this->PageCategory->movedown($id)) {
+		if($this->PageCategory->moveDown($id)) {
 			echo true;
 		} else {
 			$this->ajaxError(500, '一度リロードしてから再実行してみてください。');
@@ -539,5 +545,4 @@ class PageCategoriesController extends AppController {
 		exit();
 		
 	}
-	
 }

@@ -48,6 +48,9 @@ $favoriteBoxOpened = $this->Session->read('Baser.favorite_box_opened');
 	'admin/startup',
 	'admin/adjust_scroll')) ?>
 <?php $this->BcBaser->scripts() ?>
+<?php
+	echo $scripts_for_layout;
+?>
 </head>
 
 <body id="<?php $this->BcBaser->contentsName() ?>" class="normal">
